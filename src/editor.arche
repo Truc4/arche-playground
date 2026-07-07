@@ -1,0 +1,57 @@
+// editor — a single-line text editor, composed from two devices: `term` (key input) + `screen` (display).
+// The edit logic lives in the WORLD; only the backends differ. It's a REACTOR (poll → edit → render each
+// frame):
+//   native:   make dev     → raw terminal via term's termios read_key + screen's clib backend
+//   browser:  make serve   → keydown via term's dom host + screen's dom backend
+// MVP: printable keys append, Backspace deletes, Esc quits.
+#import { screen term os }
+
+// Display columns read by the screen backend (structural, by name).
+trow :: int;
+tlen :: int;
+at   :: int;
+
+Line   :: arche { trow, tstr :: [64]char, tlen }
+Closed :: arche { at }
+[1]Line ?abort;
+[1]Closed;
+
+// init (runs once, before the loop): raw-enable the terminal, seed one empty line.
+init :: system eff {
+  term.raw_enable()();
+  insert(Line { trow: 0, tstr: "", tlen: 0 })(_:, _ok:);
+}
+
+// One frame of input: poll a key (0 = none), apply it to the line.
+input :: system eff {
+  term.read_key()(k:);
+  map (query { tstr, tlen })(tstr, tlen) eff {
+    if (k >= 32 && k <= 126 && tlen < 64) {   // printable → append
+      tstr[tlen] = k;
+      tlen = tlen + 1;
+    }
+    if ((k == 127 || k == 8) && tlen > 0) {   // Backspace/Delete → erase last
+      tlen = tlen - 1;
+    }
+  };
+  if (k == 27) {                               // Esc → quit
+    insert(Closed { at: 0 })(_:, _ok:);
+  }
+}
+
+// Quit path: only runs once a Closed row exists — restore the tty, exit.
+done :: map (Closed) eff {
+  term.raw_restore()();
+  os.exit(0)(_:);
+}
+
+#run {
+  seq({
+    init,
+    forever(seq({
+      input,
+      screen.render,
+      done,
+    })),
+  })
+}
