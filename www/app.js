@@ -97,3 +97,19 @@ async function run() {
 runBtn.addEventListener("click", run);
 // Cmd/Ctrl+Enter to run.
 editor.addEventListener("keydown", (e) => { if ((e.metaKey || e.ctrlKey) && e.key === "Enter") { e.preventDefault(); run(); } });
+
+// LIVE diagnostics — the Arche analyzer runs IN THE BROWSER (analyzer/*.wasm), no server. Debounced on every
+// edit; populates the same diagnostics pane. This is the client-side path the whole design is built toward.
+let analyzeTimer = null;
+function scheduleAnalyze() {
+  clearTimeout(analyzeTimer);
+  analyzeTimer = setTimeout(async () => {
+    try {
+      const diags = await window.archeAnalyzer.diagnostics(editor.value);
+      renderDiagnostics(diags);
+      setStatus(diags.some((d) => d.severity === "error") ? "" : "no errors");
+    } catch (e) { /* analyzer not ready / crashed — leave the pane */ }
+  }, 250);
+}
+editor.addEventListener("input", scheduleAnalyze);
+scheduleAnalyze(); // analyze the initial sample
