@@ -9,3 +9,5 @@
 /.playwright-mcp/
 /node_modules/
 /www/demo.wasm
+/www/demo.hosts.js
+/www/arche-web.js

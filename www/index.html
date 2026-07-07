@@ -10,36 +10,23 @@
     header { padding: 14px 18px; border-bottom: 1px solid #1c2130; }
     header b { color: #89b4fa; }
     header .sub { color: #6c7086; }
-    #screen { padding: 18px; margin: 0; white-space: pre; min-height: 6em; }
+    #app { padding: 18px; }
+    #arche-screen { margin: 0; white-space: pre; min-height: 6em; }
     .foot { color: #6c7086; padding: 0 18px 18px; }
-    a { color: #89b4fa; }
-    code { color: #a6e3a1; }
+    a { color: #89b4fa; } code { color: #a6e3a1; }
   </style>
 </head>
 <body>
   <header>
     <b>arche · screen device</b> — the <b>dom</b> backend.<br />
-    <span class="sub">The same program (<code>src/demo.arche</code>) renders in your terminal via <code>make dev</code> (the clib backend). No code change — just the backend.</span>
+    <span class="sub">The same <code>src/demo.arche</code> runs in your terminal via <code>make dev</code> (clib backend).</span>
   </header>
-  <pre id="screen">loading…</pre>
-  <div class="foot">Compiled to wasm; <code>screen_be_*</code> fulfilled by <code>www/screen.js</code>. The in-browser editor is at <a href="editor.html">editor.html</a>.</div>
+  <div id="app"></div>
+  <div class="foot">Turnkey: only the compiler-emitted <code>arche-web.js</code> + <code>demo.hosts.js</code> are loaded — no hand-written host. The in-browser editor is at <a href="editor.html">editor.html</a>.</div>
 
-  <script src="runtime/wasi.js"></script>
-  <script src="screen.js"></script>
-  <script>
-    (async () => {
-      const el = document.getElementById("screen");
-      try {
-        const shim = new WasiShim(["demo"]);
-        const screen = new ScreenLayer(el);
-        const bytes = await (await fetch("demo.wasm")).arrayBuffer();
-        const { instance } = await WebAssembly.instantiate(bytes, Object.assign({}, shim.imports, { env: screen.imports }));
-        screen.memory = instance.exports.memory;
-        shim.start(instance); // runs _start once: seed the world, then screen.render
-      } catch (e) {
-        el.textContent = "error: " + (e && e.message ? e.message : e);
-      }
-    })();
-  </script>
+  <!-- Both files are emitted by `arche build --arch=wasm32` next to demo.wasm; the device ships its own host. -->
+  <script src="arche-web.js"></script>
+  <script src="demo.hosts.js"></script>
+  <script>archeRun("demo.wasm", { root: document.getElementById("app") });</script>
 </body>
 </html>
