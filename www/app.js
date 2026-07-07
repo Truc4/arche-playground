@@ -1,10 +1,7 @@
-// arche-playground app shell. Wires: editor → POST source to the compile service → get { wasm, diagnostics }
-// → decode + run via runProgram (compute → text pane, gfx → canvas). Diagnostics render below the editor.
-//
-// The compile service URL is configurable via ?compile=<url> (defaults to localhost:8791 for dev).
+// arche-playground app shell. FULLY CLIENT-SIDE, no server: the editor's source is compiled by the Arche
+// compiler running as WebAssembly (archeCompiler.compile → arche-compile.wasm), then run via runProgram
+// (compute → text pane, gfx → canvas). Live diagnostics come from the analyzer wasm. Nothing leaves the browser.
 "use strict";
-
-const COMPILE_URL = new URLSearchParams(location.search).get("compile") || "http://127.0.0.1:8791/compile";
 
 const editor = document.getElementById("editor");
 const out = document.getElementById("out");
@@ -15,16 +12,12 @@ const diagEl = document.getElementById("diagnostics");
 
 let running = null; // the current run handle ({ stop() }), stopped before the next run
 
-const SAMPLE = `// Welcome to the arche playground. Edit and hit Run.
-// A compute program prints to the right; a gfx program draws to a canvas.
+const SAMPLE = `// arche playground — this compiles AND runs entirely in your browser.
+// The Arche compiler itself is running as WebAssembly. No server. Edit and hit Run.
 #import { fmt }
 
 entry :: system eff {
-  sum := 0;
-  for (i := 1; i <= 10; i += 1) {
-    sum = sum + i;
-  }
-  fmt.printf("sum 1..10 = %d\\n", sum);
+  fmt.printf("Hello from Arche — compiled in your browser, no server!\\n");
 }
 
 #run entry
@@ -49,45 +42,35 @@ function escapeHtml(s) { return String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp
 
 async function run() {
   runBtn.disabled = true;
-  setStatus("compiling…");
-  renderDiagnostics([]);
+  setStatus("compiling (in-browser)…");
   if (running) { running.stop(); running = null; }
 
+  // Compile ENTIRELY in the browser — the Arche compiler itself runs as wasm (arche-compile.wasm), no server.
   let res;
   try {
-    res = await (await fetch(COMPILE_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ source: editor.value }),
-    })).json();
+    res = await window.archeCompiler.compile(editor.value);
   } catch (e) {
-    setStatus("compile service unreachable");
-    out.textContent = "Could not reach the compile service at " + COMPILE_URL + "\n\n" + e;
-    out.style.display = "";
-    canvas.style.display = "none";
+    setStatus("compiler error");
+    out.style.display = "block"; canvas.style.display = "none";
+    out.textContent = "compiler error: " + (e && e.message ? e.message : e);
     runBtn.disabled = false;
     return;
   }
-
-  renderDiagnostics(res.diagnostics);
   if (!res.ok) {
     setStatus("compile failed");
-    out.textContent = res.stderr || "compilation failed";
-    out.style.display = "";
-    canvas.style.display = "none";
+    out.style.display = "block"; canvas.style.display = "none";
+    out.textContent = res.stderr || "compilation failed"; // the live analyzer shows the positioned diagnostic
     runBtn.disabled = false;
     return;
   }
 
   setStatus("running…");
   try {
-    const bytes = Uint8Array.from(atob(res.wasm), (c) => c.charCodeAt(0));
-    running = await runProgram(bytes, { out, canvas });
+    running = await runProgram(res.wasm, { out, canvas });
     setStatus(running.mode === "gfx" ? "running (gfx) — click canvas, ←/→" : "done");
   } catch (e) {
     setStatus("runtime error");
-    out.style.display = "";
-    canvas.style.display = "none";
+    out.style.display = "block"; canvas.style.display = "none";
     out.textContent = "runtime error: " + (e && e.message ? e.message : e);
   } finally {
     runBtn.disabled = false;

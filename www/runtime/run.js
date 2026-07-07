@@ -28,6 +28,8 @@
     const dec = new TextDecoder();
     const env = {
       log_be_emit(level, ptr, len) { shim.stderr += dec.decode(new Uint8Array(shim.memory.buffer, ptr, len)); },
+      // The direct wasm backend routes fmt.printf → arche_print(ptr,len) (host-side formatting/output).
+      arche_print(ptr, len) { shim.stdout += dec.decode(new Uint8Array(shim.memory.buffer, ptr, len)); },
     };
     const { instance } = await WebAssembly.instantiate(u8, Object.assign({}, shim.imports, { env }));
     shim.start(instance); // throws on non-zero exit; caller shows it

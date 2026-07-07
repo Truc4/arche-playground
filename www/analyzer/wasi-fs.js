@@ -67,6 +67,8 @@
       for (let i = 0; i < parts.length - 1; i++) node = (node.children[parts[i]] ||= { type: "dir", children: {} });
       node.children[parts[parts.length - 1]] = { type: "file", bytes: enc.encode(content) };
     }
+    // Read a file's bytes back out of the memfs (e.g. the compiler's /work/out.wasm), or null if absent.
+    readFile(abs) { const n = resolve(this.root, abs); return n && n.type === "file" ? n.bytes : null; }
 
     _dv() { return new DataView(this.memory.buffer); }
     _u8() { return new Uint8Array(this.memory.buffer); }
@@ -88,9 +90,20 @@
         poll_oneoff: () => NOSYS,
         // stdio + files
         fd_write(fd, iovs, n, nwritten) {
-          const dv = self._dv(), u8 = self._u8(); let total = 0, s = "";
-          for (let i = 0; i < n; i++) { const p = iovs + i * 8, buf = dv.getUint32(p, true), len = dv.getUint32(p + 4, true); s += dec.decode(u8.subarray(buf, buf + len)); total += len; }
-          if (fd === 2) self.stderr += s; else self.stdout += s;
+          const dv = self._dv(), u8 = self._u8(); let total = 0;
+          const chunks = [];
+          for (let i = 0; i < n; i++) { const p = iovs + i * 8, buf = dv.getUint32(p, true), len = dv.getUint32(p + 4, true); chunks.push(u8.slice(buf, buf + len)); total += len; }
+          const e = self.fds[fd];
+          if (fd >= 3 && e && e.node && e.node.type === "file") { // write to a real file (e.g. the compiler's out.wasm)
+            let extra = 0; for (const c of chunks) extra += c.length;
+            const grown = new Uint8Array(e.node.bytes.length + extra);
+            grown.set(e.node.bytes); let o = e.node.bytes.length;
+            for (const c of chunks) { grown.set(c, o); o += c.length; }
+            e.node.bytes = grown;
+          } else { // stdout/stderr
+            let s = ""; for (const c of chunks) s += dec.decode(c);
+            if (fd === 2) self.stderr += s; else self.stdout += s;
+          }
           dv.setUint32(nwritten, total, true); return OK;
         },
         fd_read(fd, iovs, n, nread) {
@@ -125,10 +138,19 @@
         fd_prestat_get(fd, buf) { const name = self.preopens[fd]; if (!name) return BADF; const dv = self._dv(); dv.setUint8(buf, 0 /*dir*/); dv.setUint32(buf + 4, enc.encode(name).length, true); return OK; },
         fd_prestat_dir_name(fd, path, len) { const name = self.preopens[fd]; if (!name) return BADF; self._u8().set(enc.encode(name).subarray(0, len), path); return OK; },
         // path ops (relative to a preopen dir fd)
-        path_open(dirfd, _dirflags, pathPtr, pathLen, _oflags, _rb, _ri, _fdflags, outFd) {
+        path_open(dirfd, _dirflags, pathPtr, pathLen, oflags, _rb, _ri, _fdflags, outFd) {
           const dir = self.fds[dirfd]; if (!dir || !dir.node || dir.node.type !== "dir") return NOTDIR;
           const rel = dec.decode(self._u8().subarray(pathPtr, pathPtr + pathLen));
-          const node = resolve(dir.node, rel); if (!node) return NOENT;
+          let node = resolve(dir.node, rel);
+          if (!node && (oflags & 0x1)) { // O_CREAT: make the file in its (existing) parent dir
+            const parts = rel.split("/").filter((p) => p && p !== ".");
+            let d = dir.node;
+            for (let i = 0; i < parts.length - 1; i++) { d = d.children[parts[i]]; if (!d || d.type !== "dir") return NOENT; }
+            node = { type: "file", bytes: new Uint8Array(0) };
+            d.children[parts[parts.length - 1]] = node;
+          }
+          if (!node) return NOENT;
+          if (node.type === "file" && (oflags & 0x8)) node.bytes = new Uint8Array(0); // O_TRUNC
           const fd = self.nextFd++; self.fds[fd] = { node, off: 0 };
           self._dv().setUint32(outFd, fd, true); return OK;
         },
