@@ -8,3 +8,4 @@
 # Test / tooling artifacts
 /.playwright-mcp/
 /node_modules/
+/www/demo.wasm
