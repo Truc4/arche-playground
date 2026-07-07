@@ -1,0 +1,26 @@
+// screen demo — the DRIVER. It puts text lines on its own archetype in the WORLD; the `screen` device
+// renders them. Backend-agnostic: the exact same code runs in a real terminal (clib) or a browser (dom).
+//   native:   make dev     → ARCHE_SELECT=screen=clib arche run src/demo.arche   (the terminal, no browser)
+//   browser:  make serve   → screen=dom, compiled to wasm                        (the DOM)
+#import { screen }
+
+// The display columns the screen backend reads (structural, by name) — declared by the driver, not the device.
+trow :: int;
+tlen :: int;
+
+// The driver owns the archetype + pool (a device owns no storage).
+Line :: arche { trow, tstr :: [64]char, tlen }
+[8]Line ?abort;
+
+seed :: system eff {
+  insert(Line { trow: 0, tstr: "hello from arche", tlen: 16 })(_:, _ok:);
+  insert(Line { trow: 1, tstr: "the screen device shows world data", tlen: 34 })(_:, _ok:);
+  insert(Line { trow: 2, tstr: "clib backend today, dom backend next", tlen: 36 })(_:, _ok:);
+}
+
+#run {
+  seq({
+    seed,
+    screen.render,
+  })
+}

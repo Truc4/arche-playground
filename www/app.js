@@ -12,12 +12,18 @@ const diagEl = document.getElementById("diagnostics");
 
 let running = null; // the current run handle ({ stop() }), stopped before the next run
 
-const SAMPLE = `// arche playground — this compiles AND runs entirely in your browser.
-// The Arche compiler itself is running as WebAssembly. No server. Edit and hit Run.
+const SAMPLE = `// arche playground — compiles AND runs entirely in your browser (the Arche compiler is WebAssembly).
+// No server. Edit and hit Run.
 #import { fmt }
 
+N :: 50;
+
 entry :: system eff {
-  fmt.printf("Hello from Arche — compiled in your browser, no server!\\n");
+  sum := 0;
+  for (i := 1; i <= N; i += 1) {
+    sum = sum + i;
+  }
+  fmt.printf("sum 1..%d = %d\\n", N, sum);
 }
 
 #run entry

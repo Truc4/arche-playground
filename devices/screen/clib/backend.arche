@@ -1,0 +1,21 @@
+/// C-LIB backend for the `screen` device — merged under `[select] term = "clib"`. The native renderer: it
+/// forwards each display line to a libc C shim (term_clib.c, auto-compiled because it sits in this variant
+/// folder) that writes to the REAL terminal with ANSI cursor moves. No browser, no JS.
+///
+/// Same public surface as the dom backend — `render` reads the driver's `{ trow, tstr, tlen }` columns off
+/// whatever archetype in the world carries them, so the driver's code is identical across backends. `tstr`
+/// (a `[N]char` column) crosses to C as a bare pointer via the in-out borrow `(s: []char)`; `tlen` is length.
+#module
+#foreign
+screen_be_clear :: proc();
+screen_be_line  :: proc(row: int, s: []char, n: int)(s: []char);
+
+/// Clear the terminal, then draw every world line at its row.
+render :: system eff {
+  screen_be_clear()();
+  map (query { trow, tstr, tlen }) eff {
+    screen_be_line(trow, tstr, tlen)(_:);
+  };
+}
+
+

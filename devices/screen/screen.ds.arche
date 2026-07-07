@@ -1,0 +1,15 @@
+/// Datasheet for the `screen` device — a DUMB terminal text display. It owns no text logic and no storage: the
+/// DRIVER puts text lines on its own archetype in the WORLD, and the device just renders them. This is the
+/// same shape as the `text` device (extras/text) — a backend reads the driver's columns structurally, so the
+/// driver's code is identical no matter which backend is merged.
+///
+/// Columns the driver provides, read by a backend's `map (query { trow, tstr, tlen })`:
+///   trow — the line's row (0-based, top to bottom)
+///   tstr — a fixed [N]char buffer holding the line's text
+///   tlen — the live character count in tstr
+///
+/// Backends — interchangeable variants, pick ONE with `[select] term = "..."` (never both):
+///   clib — writes each line to the REAL terminal via libc (native; ANSI cursor moves). No browser.
+///   dom  — emits each line into the page through a JS host (browser). Its `screen_be_*` seams become wasm
+///          imports because the folder ships no C shim.
+// RUN: true

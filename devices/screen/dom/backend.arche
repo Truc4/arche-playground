@@ -1,0 +1,17 @@
+/// DOM backend for the `screen` device — merged under `[select] term = "dom"`. The browser renderer: there is
+/// NO C shim in this folder, so the `screen_be_*` seams stay undefined and become wasm IMPORTS that the JS host
+/// (www/screen.js) fulfils by writing lines into the page. Same public surface as the clib backend — `render`
+/// reads the driver's `{ trow, tstr, tlen }` columns off the world, so the driver's code is identical.
+#module
+#foreign
+screen_be_clear :: proc();
+screen_be_line  :: proc(row: int, s: []char, n: int)(s: []char);
+
+/// Clear last frame's lines, then emit every world line at its row.
+render :: system eff {
+  screen_be_clear()();
+  map (query { trow, tstr, tlen }) eff {
+    screen_be_line(trow, tstr, tlen)(_:);
+  };
+}
+

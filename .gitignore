@@ -1,0 +1,10 @@
+/build
+
+# Built in-browser toolchain — regenerate with `make build` (do not commit).
+/www/analyzer/arche-compile.wasm
+/www/analyzer/arche-analyzer.wasm
+/www/analyzer/arche-fs.json
+
+# Test / tooling artifacts
+/.playwright-mcp/
+/node_modules/
