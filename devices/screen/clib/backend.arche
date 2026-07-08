@@ -7,15 +7,17 @@
 /// (a `[N]char` column) crosses to C as a bare pointer via the in-out borrow `(s: []char)`; `tlen` is length.
 #module
 #foreign
-screen_be_clear :: proc();
-screen_be_line  :: proc(row: int, s: []char, n: int)(s: []char);
+screen_be_clear   :: proc();
+screen_be_line    :: proc(row: int, s: []char, n: int)(s: []char);
+screen_be_present :: proc();
 
-/// Clear the terminal, then draw every world line at its row.
+/// Clear the terminal, then draw every world line at its row, then pace the frame.
 render :: system eff {
   screen_be_clear()();
   map (query { trow, tstr, tlen }) eff {
     screen_be_line(trow, tstr, tlen)(_:);
   };
+  screen_be_present()();
 }
 
 
