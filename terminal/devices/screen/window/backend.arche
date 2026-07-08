@@ -115,11 +115,11 @@ GLYPHS :: {
 render :: system (query { framebuffer })(framebuffer) eff {
   map (query { handle }) eff {
     gfx.dims(handle)(vw:, vh:);
-    map (query { trow, tstr, tlen }) eff {
+    map (query { trow, tstr, tlen, oy }) eff {
       tsz  := 16;             // fixed cell pixel height
       tcol := 0xE0E0E0;       // fixed text colour
       s    := tsz / 8;        // integer upscale (pixel height → 8×8 cell scale)
-      ty   := 40 + trow * 22; // row index → y (40px top margin, 22px line pitch)
+      ty   := oy + trow * 22; // row index → y (driver-supplied top origin `oy`, 22px line pitch)
       for (i := 0; i < tlen; i += 1) {
         c := tstr[i];
         if (c < 32 || c > 126) { continue; } // printable ASCII only

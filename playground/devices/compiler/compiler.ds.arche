@@ -1,0 +1,11 @@
+/// Datasheet for the `compiler` device — compiles + runs Arche SOURCE and returns the program's output. Unlike
+/// a display, the backends are real toolchains:
+///   clib — shells out to the native `arche run` on a temp file and captures its stdout (popen).
+///   wasm — (browser) drives the in-browser arche-compile.wasm + runs the result, capturing stdout. [later]
+///
+/// Seam a backend fulfils (native, synchronous — one call compiles, runs, and writes the output):
+///   compiler_be_run(src, n, buf, cap)(buf, len) — run `src[0..n]`, write program output into the caller's
+///   `buf` (cap bytes), return `len`. The caller allocates `buf` at the out-binding (like os.read/net.recv).
+///
+/// Pick a backend with `[select] compiler = "clib" | "wasm"`.
+// RUN: true

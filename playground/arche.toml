@@ -1,0 +1,17 @@
+# arche-playground/playground — the COMPOSED app: an editor pane + a terminal pane + a compiler, in one gfx
+# window (native X11 / browser canvas). It pulls the editor + screen devices from the sibling components and
+# its own compiler device. Everything depends only on ../../arche.
+[lib]
+paths = [
+  "devices",
+  "../editor/devices",
+  "../terminal/devices",
+  "../../arche/extras",
+  "../../arche/stdlib",
+]
+
+[select]
+gfx      = "x11"
+editor   = "window"
+screen   = "window"
+compiler = "clib"

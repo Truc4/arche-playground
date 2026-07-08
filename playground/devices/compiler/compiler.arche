@@ -1,0 +1,9 @@
+/// Public surface of the `compiler` device (namesake file, like gfx.arche). Forwards to the selected backend's
+/// `compiler_be_run` seam (declared #foreign in each variant folder).
+///
+/// Run `src[0..n]`, writing the program's NUL-terminated output into the caller's `buf`. Returns the deferred
+/// effect; a system binds it, discarding both in-out shadows (the output is written in place):
+///   `compiler.run(src, slen, obuf, 4096)(_:, obuf:);`  then scan obuf to the NUL (obuf a queried column).
+run :: func(src: []char, n: int, buf: []char, cap: int) -> Eff([]char, []char) {
+  return compiler_be_run(src, n, buf, cap);
+}

@@ -12,10 +12,11 @@ handle :: window;
 bg     :: int;
 elen   :: int;
 ecur   :: int;
+submit :: int;
 
 Window      :: arche { handle, bg }
 Framebuffer :: arche { framebuffer :: [W * H]int }
-EditBuf     :: arche { ebuf :: [256]char, elen, ecur } // array column declared inline (top-level array comp unsupported)
+EditBuf     :: arche { ebuf :: [256]char, elen, ecur, submit } // array column declared inline (top-level array comp unsupported)
 [1]Window ?abort;
 [1]Framebuffer(1);
 [1]EditBuf ?abort;
@@ -27,7 +28,7 @@ boot :: system eff {
 }
 
 seed :: system eff {
-  insert(EditBuf { ebuf: "line one\nline two\nedit me!", elen: 26, ecur: 26 })(_:, _ok:);
+  insert(EditBuf { ebuf: "line one\nline two\nedit me!", elen: 26, ecur: 26, submit: 0 })(_:, _ok:);
 }
 
 done :: map (Closed) eff {

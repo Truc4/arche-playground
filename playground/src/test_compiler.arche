@@ -1,0 +1,30 @@
+// Isolated test for the compiler device: compile+run a hardcoded program, print what it emitted.
+//   ARCHE_BIN=../../arche/build/arche ARCHE_SELECT=compiler=clib ../../arche/build/arche run src/test_compiler.arche
+#import { compiler fmt }
+
+slen :: int;
+
+Src :: arche { sbuf :: [512]char, slen }
+Out :: arche { obuf :: [4096]char }
+[1]Src ?abort;
+[1]Out(1);
+
+seed :: system eff {
+  insert(Src { sbuf: "#import { fmt }\ngo :: system eff { fmt.printf(\"sum = %d\\n\", 6 * 7); }\n#run seq({ go })", slen: 0 })(_:, _ok:);
+}
+
+run_it :: system eff {
+  map (query { sbuf, slen }) eff {
+    map (query { obuf })(obuf) eff {
+      compiler.run(sbuf, slen, obuf, 4096)(_:, obuf:);
+    };
+  };
+}
+
+show :: system eff {
+  map (query { obuf }) eff {
+    fmt.printf("--- program output ---\n%s", obuf);
+  };
+}
+
+#run seq({ seed, run_it, show })

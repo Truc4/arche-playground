@@ -118,7 +118,8 @@ open :: system eff {
 step :: system eff {
   map (query { handle }) eff {
     gfx.key(handle)(k:);
-    map (query { ebuf, elen, ecur })(ebuf, elen, ecur) eff {
+    map (query { ebuf, elen, ecur, submit })(ebuf, elen, ecur, submit) eff {
+      if (k == 18) { submit = 1; }                       // Ctrl-R → raise submit (the driver acts on it)
       if (k == 1000 && ecur > 0) { ecur = ecur - 1; }    // Left
       if (k == 1001 && ecur < elen) { ecur = ecur + 1; } // Right
       if (k == 1002) { // Up → same column on the previous line

@@ -11,10 +11,11 @@ handle :: window;
 bg     :: int;
 trow   :: int;
 tlen   :: int;
+oy     :: int;
 
 Window      :: arche { handle, bg }
 Framebuffer :: arche { framebuffer :: [W * H]int }
-Line        :: arche { trow, tstr :: [64]char, tlen }
+Line        :: arche { trow, tstr :: [64]char, tlen, oy }
 [1]Window ?abort;
 [1]Framebuffer(1);
 [8]Line ?abort;
@@ -26,9 +27,9 @@ boot :: system eff {
 }
 
 seed :: system eff {
-  insert(Line { trow: 0, tstr: "hello from arche!", tlen: 17 })(_:, _ok:);
-  insert(Line { trow: 1, tstr: "digits 0123456789 + symbols {}[]()<>", tlen: 35 })(_:, _ok:);
-  insert(Line { trow: 2, tstr: "same app, native & wasm.", tlen: 24 })(_:, _ok:);
+  insert(Line { trow: 0, tstr: "hello from arche!", tlen: 17, oy: 40 })(_:, _ok:);
+  insert(Line { trow: 1, tstr: "digits 0123456789 + symbols {}[]()<>", tlen: 35, oy: 40 })(_:, _ok:);
+  insert(Line { trow: 2, tstr: "same app, native & wasm.", tlen: 24, oy: 40 })(_:, _ok:);
 }
 
 done :: map (Closed) eff {

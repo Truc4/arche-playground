@@ -1,0 +1,11 @@
+/// C-LIB backend for the `compiler` device — merged under `[select] compiler = "clib"`. Vendors a shim
+/// (compiler_clib.c, auto-compiled from this variant folder; pure libc) that writes the source to a temp
+/// `.arche` file, `popen`s `<ARCHE_BIN> run <tmp>` (default `arche`, override with the `ARCHE_BIN` env var),
+/// and captures the program's stdout+stderr. Synchronous: one call compiles, runs, and returns the output.
+/// The public `compiler.run` wrapper lives in the namesake compiler.arche.
+#module
+#foreign
+// `src` + `buf` are shadowed in the out-list (in-out) — an extern is assumed to mutate its array in-params, so
+// a read-only borrow must appear in the out-list. `buf` is the caller-allocated OUT, written in place and
+// NUL-terminated; the caller scans to the terminator (no separate length out).
+compiler_be_run :: proc(src: []char, n: int, buf: []char, cap: int)(src: []char, buf: []char);
