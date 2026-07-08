@@ -22,7 +22,8 @@ open :: system eff {
 /// Fill the driver's source buffer `{ebuf}` from the <textarea> (NUL-terminated; the driver scans the length).
 text :: system eff {
   map (query { ebuf })(ebuf) eff {
-    editor_be_text(ebuf, 256)(ebuf:);
+    editor_be_text(_, ebuf.length)(ebuf); // host WRITES the buffer: in is `_`, cap is the buffer's own length,
+                                          // and the out writes back into the queried `ebuf` (no shadowing `:`)
   };
 }
 

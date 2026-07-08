@@ -19,7 +19,11 @@
         (rt.root || document.body).appendChild(ta);
         ta.value = [
           "#import { fmt }",
-          "go :: system eff { fmt.printf(\"result = %d\\n\", 6 * 7); }",
+          "",
+          "go :: system eff {",
+          "  fmt.printf(\"result = %d\\n\", 6 * 7);",
+          "}",
+          "",
           "#run seq({ go })",
         ].join("\n");
       }

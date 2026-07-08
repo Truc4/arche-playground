@@ -25,7 +25,7 @@ sy     :: int;
 
 Window      :: arche { handle, bg }
 Framebuffer :: arche { framebuffer :: [MAXW * H]int }
-EditBuf     :: arche { ebuf :: [256]char, elen, ecur, submit, ex, ey }
+EditBuf     :: arche { ebuf :: [4096]char, elen, ecur, submit, ex, ey }
 Out         :: arche { obuf :: [4096]char }
 Line        :: arche { trow, tstr :: [64]char, tlen, sx, sy }
 [1]Window ?abort;
@@ -39,13 +39,13 @@ boot :: system eff {
   gfx.open(W, H, "arche playground")(win:);
   insert(Window { handle: win, bg: 0x0B0E14 });
   // A starter program. Edit it, then Ctrl-R to run. elen=0 → `measure` fills it from the NUL terminator.
-  insert(EditBuf { ebuf: "#import { fmt }\ngo :: system eff { fmt.printf(\"result = %d\\n\", 6 * 7); }\n#run seq({ go })", elen: 0, ecur: 0, submit: 0, ex: 12, ey: 12 })(_:, _ok:);
+  insert(EditBuf { ebuf: "#import { fmt }\n\ngo :: system eff {\n  fmt.printf(\"result = %d\\n\", 6 * 7);\n}\n\n#run seq({ go })", elen: 0, ecur: 0, submit: 0, ex: 12, ey: 12 })(_:, _ok:);
 }
 
 // The seeded ebuf is NUL-terminated; compute its length once so the editor + compiler see the real source.
 measure :: system eff {
   map (query { ebuf, elen, ecur })(ebuf, elen, ecur) eff {
-    for (; elen < 256 && ebuf[elen] != 0; elen += 1) { }
+    for (; elen < ebuf.length && ebuf[elen] != 0; elen += 1) { }
     ecur = elen;
   };
 }
@@ -63,7 +63,7 @@ compile :: system eff {
     if (submit == 1) {
       submit = 0;
       map (query { obuf })(obuf) eff {
-        compiler.run(ebuf, elen, obuf, 4096)(_:, obuf:);
+        compiler.run(ebuf, elen, obuf, obuf.length)(_:, obuf);
       };
     }
   };

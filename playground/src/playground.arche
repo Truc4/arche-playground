@@ -14,7 +14,7 @@ submit :: int;
 trow   :: int;
 tlen   :: int;
 
-EditBuf :: arche { ebuf :: [256]char, elen, ecur, submit }
+EditBuf :: arche { ebuf :: [4096]char, elen, ecur, submit }
 Out     :: arche { obuf :: [4096]char }
 Line    :: arche { trow, tstr :: [64]char, tlen }
 [1]EditBuf(1);
@@ -35,9 +35,9 @@ run_it :: system eff {
     if (submit == 1) {
       submit = 0;
       elen = 0;
-      for (; elen < 256 && ebuf[elen] != 0; elen += 1) { }
+      for (; elen < ebuf.length && ebuf[elen] != 0; elen += 1) { }
       map (query { obuf })(obuf) eff {
-        compiler.run(ebuf, elen, obuf, 4096)(_:, obuf:);
+        compiler.run(ebuf, elen, obuf, obuf.length)(_:, obuf);
       };
     }
   };

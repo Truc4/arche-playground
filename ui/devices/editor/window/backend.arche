@@ -156,7 +156,7 @@ step :: system eff {
       ch := 0;
       if (k >= 32 && k < 127) { ch = k; }
       if (k == 13) { ch = 10; }
-      if (ch > 0 && elen < 255) {
+      if (ch > 0 && elen < ebuf.length - 1) {
         for (j := elen; j > ecur; j -= 1) { ebuf[j] = ebuf[j - 1]; }
         ebuf[ecur] = ch;
         elen = elen + 1;
