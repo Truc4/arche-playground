@@ -1,0 +1,51 @@
+// editor WINDOW demo — the editor device rendered into a gfx WINDOW (native X11 / browser canvas). The SAME
+// program runs both; only `[select] gfx=x11|wasm` differs. The window backend does its own editing (there's
+// no OS text widget in a gfx window): type to append, Backspace to delete. Uppercase only until the font
+// grows to full ASCII (task 1b).
+//   native:  ARCHE_SELECT=gfx=x11,editor=window arche run src/window.arche
+#import { gfx editor os }
+
+W :: 800;
+H :: 600;
+
+handle :: window;
+bg     :: int;
+elen   :: int;
+ecur   :: int;
+
+Window      :: arche { handle, bg }
+Framebuffer :: arche { framebuffer :: [W * H]int }
+EditBuf     :: arche { ebuf :: [256]char, elen, ecur } // array column declared inline (top-level array comp unsupported)
+[1]Window ?abort;
+[1]Framebuffer(1);
+[1]EditBuf ?abort;
+[1]Closed;
+
+boot :: system eff {
+  gfx.open(W, H, "arche editor")(win:);
+  insert(Window { handle: win, bg: 0x0B0E14 });
+}
+
+seed :: system eff {
+  insert(EditBuf { ebuf: "edit me: type here", elen: 18, ecur: 18 })(_:, _ok:);
+}
+
+done :: map (Closed) eff {
+  os.exit(0)(_:);
+}
+
+#run {
+  seq({
+    boot,
+    editor.open,
+    seed,
+    forever(seq({
+      editor.step,
+      gfx.clear,
+      editor.render,
+      gfx.present,
+      gfx.poll,
+      done,
+    })),
+  })
+}

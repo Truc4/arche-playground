@@ -26,9 +26,9 @@ boot :: system eff {
 }
 
 seed :: system eff {
-  insert(Line { trow: 0, tstr: "HELLO FROM ARCHE", tlen: 16 })(_:, _ok:);
-  insert(Line { trow: 1, tstr: "SCREEN DEVICE IN A GFX WINDOW", tlen: 28 })(_:, _ok:);
-  insert(Line { trow: 2, tstr: "SAME APP NATIVE AND WASM", tlen: 24 })(_:, _ok:);
+  insert(Line { trow: 0, tstr: "hello from arche!", tlen: 17 })(_:, _ok:);
+  insert(Line { trow: 1, tstr: "digits 0123456789 + symbols {}[]()<>", tlen: 35 })(_:, _ok:);
+  insert(Line { trow: 2, tstr: "same app, native & wasm.", tlen: 24 })(_:, _ok:);
 }
 
 done :: map (Closed) eff {

@@ -1,12 +1,8 @@
-/// WINDOW backend for the `screen` device — merged under `[select] screen = "window"`. The native/canvas
-/// renderer: it blits a built-in 8×8 bitmap font straight into the DRIVER's `{ framebuffer }` (the same buffer
-/// gfx renders into), so the terminal composites into a gfx window on every target — native X11 window and web
-/// canvas — with NO host seam and no JS. Pure raster, exactly like gfx's `rect`/`circle` + the text device's
-/// framebuffer backend (from which this was adapted). This is the "same look native + wasm" path.
-///
-/// It reads the driver's screen rows `{ trow, tstr, tlen }` (the driver owns/positions them) and lays them out
-/// as fixed-pitch lines: `trow` → y (top margin + trow*pitch), `tstr[0..tlen]` the chars. The dom/clib backends
-/// render the same rows to a <pre>/tty instead.
+/// WINDOW backend for the `editor` device — merged under `[select] editor = "window"`. The framebuffer twin
+/// of the dom `<textarea>`: it does the editing ITSELF (there's no OS text widget in a gfx window). `step`
+/// drains `gfx.key` and mutates the driver's edit buffer `{ ebuf, elen, ecur }`; `render` blits the text +
+/// a cursor block into the shared `{ framebuffer }` via the same 8×8 bitmap font as the screen backend. Native
+/// X11 window and web canvas look the same. The driver owns the buffer archetype (a device owns no storage).
 #import { gfx }
 
 // 8×8 glyphs: full printable ASCII 0x20–0x7E (95 glyphs), indexed `char - 0x20`, one hex byte per row with
@@ -111,17 +107,50 @@ GLYPHS :: {
   0x76, 0xdc, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // '~'
 }
 
-/// Blit every display run into the shared framebuffer as scaled bitmap glyphs, clamped to the window.
+/// No OS widget to create — the gfx window IS the surface. Kept so the device interface matches the dom/clib
+/// backends' `open`. (The driver opens the gfx window itself.)
+open :: system eff {
+}
+
+/// Drain one key per frame from `gfx.key` and edit the driver's buffer `{ ebuf, elen, ecur }` AT THE CURSOR.
+/// One key/frame keeps pace at 60fps. Left/Right (gfx sentinels 1000/1001) move the cursor; a printable char
+/// inserts at the cursor; Backspace deletes the char before it — both shift the tail of the buffer.
+step :: system eff {
+  map (query { handle }) eff {
+    gfx.key(handle)(k:);
+    map (query { ebuf, elen, ecur })(ebuf, elen, ecur) eff {
+      if (k == 1000 && ecur > 0) { ecur = ecur - 1; }    // Left
+      if (k == 1001 && ecur < elen) { ecur = ecur + 1; } // Right
+      if (k == 8 && ecur > 0) { // Backspace → delete char before cursor, shift tail left
+        for (j := ecur - 1; j < elen - 1; j += 1) {
+          ebuf[j] = ebuf[j + 1];
+        }
+        elen = elen - 1;
+        ecur = ecur - 1;
+      }
+      if (k >= 32 && k < 127 && elen < 255) { // printable → insert at cursor, shift tail right
+        for (j := elen; j > ecur; j -= 1) {
+          ebuf[j] = ebuf[j - 1];
+        }
+        ebuf[ecur] = k;
+        elen = elen + 1;
+        ecur = ecur + 1;
+      }
+    };
+  };
+}
+
+/// Blit the buffer text (single line, top margin) + a cursor bar at `ecur` into the shared framebuffer.
 render :: system (query { framebuffer })(framebuffer) eff {
   map (query { handle }) eff {
     gfx.dims(handle)(vw:, vh:);
-    map (query { trow, tstr, tlen }) eff {
-      tsz  := 16;             // fixed cell pixel height
-      tcol := 0xE0E0E0;       // fixed text colour
-      s    := tsz / 8;        // integer upscale (pixel height → 8×8 cell scale)
-      ty   := 40 + trow * 22; // row index → y (40px top margin, 22px line pitch)
-      for (i := 0; i < tlen; i += 1) {
-        c := tstr[i];
+    map (query { ebuf, elen, ecur }) eff {
+      tsz  := 16;       // fixed cell pixel height
+      tcol := 0xE0E0E0; // fixed text colour
+      s    := tsz / 8;  // integer upscale (pixel height → 8×8 cell scale)
+      ty   := 40;       // single line at the top margin (multi-line later)
+      for (i := 0; i < elen; i += 1) {
+        c := ebuf[i];
         if (c < 32 || c > 126) { continue; } // printable ASCII only
         gi := c - 32; // GLYPHS is indexed from space (0x20)
         ox := 8 + i * 8 * s; // 8px left margin, one 8-px cell per char
@@ -143,6 +172,15 @@ render :: system (query { framebuffer })(framebuffer) eff {
               }
             }
           }
+        }
+      }
+      // Cursor: a 2px vertical bar at column ecur, full cell height.
+      cx := 8 + ecur * 8 * s;
+      for (cy := ty; cy < ty + tsz; cy += 1) {
+        if (cy >= vh) { continue; }
+        for (cxx := cx; cxx < cx + 2; cxx += 1) {
+          if (cxx >= vw) { continue; }
+          framebuffer[cy * vw + cxx] = tcol;
         }
       }
     };

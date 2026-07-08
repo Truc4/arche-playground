@@ -1,6 +1,6 @@
 # arche-editor — the `editor` device: dom (<textarea>) + clib (vendored terminal editor) backends.
 [lib]
-paths = ["devices", "../../arche/stdlib"]
+paths = ["devices", "../../arche/extras", "../../arche/stdlib"]
 
 [select]
 editor = "dom"
