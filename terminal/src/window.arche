@@ -1,0 +1,50 @@
+// screen WINDOW demo — the screen device rendered into a gfx WINDOW (native X11 / browser canvas). The SAME
+// program runs both: only `[select] gfx=x11|wasm` differs. This is the "window backend" path the composed
+// playground uses (write once, looks the same native + wasm — bitmap-glyph text in a framebuffer).
+//   native:  ARCHE_SELECT=gfx=x11,screen=window arche run src/window.arche
+#import { gfx screen os }
+
+W :: 800;
+H :: 600;
+
+handle :: window;
+bg     :: int;
+trow   :: int;
+tlen   :: int;
+
+Window      :: arche { handle, bg }
+Framebuffer :: arche { framebuffer :: [W * H]int }
+Line        :: arche { trow, tstr :: [64]char, tlen }
+[1]Window ?abort;
+[1]Framebuffer(1);
+[8]Line ?abort;
+[1]Closed;
+
+boot :: system eff {
+  gfx.open(W, H, "arche terminal")(win:);
+  insert(Window { handle: win, bg: 0x0B0E14 });
+}
+
+seed :: system eff {
+  insert(Line { trow: 0, tstr: "HELLO FROM ARCHE", tlen: 16 })(_:, _ok:);
+  insert(Line { trow: 1, tstr: "SCREEN DEVICE IN A GFX WINDOW", tlen: 28 })(_:, _ok:);
+  insert(Line { trow: 2, tstr: "SAME APP NATIVE AND WASM", tlen: 24 })(_:, _ok:);
+}
+
+done :: map (Closed) eff {
+  os.exit(0)(_:);
+}
+
+#run {
+  seq({
+    boot,
+    seed,
+    forever(seq({
+      gfx.clear,
+      screen.render,
+      gfx.present,
+      gfx.poll,
+      done,
+    })),
+  })
+}

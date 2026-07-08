@@ -7,11 +7,16 @@ ARCHE ?= ../../arche/build/arche
 PORT  ?= 8000
 APP   ?= demo
 
-.PHONY: dev serve clean
+.PHONY: dev win serve clean
 
 # Native: the screen clib backend writes straight to the tty. `arche run` hot-reloads on edit.
 dev:
 	ARCHE_SELECT=screen=clib $(ARCHE) run src/$(APP).arche
+
+# Native WINDOW: the screen device rendered into a gfx X11 window (bitmap glyphs in a framebuffer) — the
+# same rendering path the browser uses via gfx=wasm. This is the "looks the same native + wasm" demo.
+win:
+	ARCHE_SELECT=gfx=x11,screen=window $(ARCHE) run src/window.arche
 
 # Browser: compile to wasm with the screen dom backend. `arche build --arch=wasm32` also emits the device
 # hosts (<app>.hosts.js) and the arche-web.js runtime next to the .wasm — no hand-written JS.
