@@ -16,7 +16,7 @@ www/$(APP).wasm: src/$(APP).arche $(wildcard devices/editor/dom/*) devices/edito
 	$(ARCHE) build --arch=wasm32 --select editor=dom -o $@ src/$(APP).arche
 
 serve: www/$(APP).wasm
-	python3 -m http.server $(PORT) -d www
+	python3 ../dev-server.py $(PORT) www
 
 clean:
 	rm -f www/*.wasm www/*.hosts.js www/arche-web.js

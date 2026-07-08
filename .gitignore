@@ -11,3 +11,5 @@
 /www/demo.wasm
 /www/demo.hosts.js
 /www/arche-web.js
+/terminal/build
+/editor/build

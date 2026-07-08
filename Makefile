@@ -27,7 +27,7 @@ editor:
 
 # Build the in-browser toolchain (if missing) then serve the playground GUI statically.
 serve: $(TOOLCHAIN)
-	python3 -m http.server $(PORT) -d www
+	python3 dev-server.py $(PORT) www
 
 # The compiler/analyzer wasm + core/stdlib bundle are build artifacts (gitignored); rebuild from source.
 toolchain: $(TOOLCHAIN)
