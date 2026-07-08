@@ -27,7 +27,7 @@ boot :: system eff {
 }
 
 seed :: system eff {
-  insert(EditBuf { ebuf: "edit me: type here", elen: 18, ecur: 18 })(_:, _ok:);
+  insert(EditBuf { ebuf: "line one\nline two\nedit me!", elen: 26, ecur: 26 })(_:, _ok:);
 }
 
 done :: map (Closed) eff {

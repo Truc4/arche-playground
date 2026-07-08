@@ -121,18 +121,43 @@ step :: system eff {
     map (query { ebuf, elen, ecur })(ebuf, elen, ecur) eff {
       if (k == 1000 && ecur > 0) { ecur = ecur - 1; }    // Left
       if (k == 1001 && ecur < elen) { ecur = ecur + 1; } // Right
-      if (k == 8 && ecur > 0) { // Backspace → delete char before cursor, shift tail left
-        for (j := ecur - 1; j < elen - 1; j += 1) {
-          ebuf[j] = ebuf[j + 1];
+      if (k == 1002) { // Up → same column on the previous line
+        ls := ecur;
+        for (; ls > 0 && ebuf[ls - 1] != 10; ls -= 1) { } // start of current line
+        col := ecur - ls;
+        if (ls > 0) {
+          ps := ls - 1;                                   // '\n' ending the previous line
+          for (; ps > 0 && ebuf[ps - 1] != 10; ps -= 1) { } // start of previous line
+          plen := ls - 1 - ps;                            // previous line length
+          if (col > plen) { ecur = ls - 1; } else { ecur = ps + col; }
         }
+      }
+      if (k == 1003) { // Down → same column on the next line
+        ls := ecur;
+        for (; ls > 0 && ebuf[ls - 1] != 10; ls -= 1) { } // start of current line
+        col := ecur - ls;
+        le := ecur;
+        for (; le < elen && ebuf[le] != 10; le += 1) { }  // end of current line
+        if (le < elen) {
+          ns := le + 1;                                   // start of next line
+          ne := ns;
+          for (; ne < elen && ebuf[ne] != 10; ne += 1) { } // end of next line
+          nlen := ne - ns;
+          if (col > nlen) { ecur = ne; } else { ecur = ns + col; }
+        }
+      }
+      if (k == 8 && ecur > 0) { // Backspace → delete char before cursor, shift tail left
+        for (j := ecur - 1; j < elen - 1; j += 1) { ebuf[j] = ebuf[j + 1]; }
         elen = elen - 1;
         ecur = ecur - 1;
       }
-      if (k >= 32 && k < 127 && elen < 255) { // printable → insert at cursor, shift tail right
-        for (j := elen; j > ecur; j -= 1) {
-          ebuf[j] = ebuf[j - 1];
-        }
-        ebuf[ecur] = k;
+      // Insert a printable char, or Enter (13) → a newline (10). Shift the tail right.
+      ch := 0;
+      if (k >= 32 && k < 127) { ch = k; }
+      if (k == 13) { ch = 10; }
+      if (ch > 0 && elen < 255) {
+        for (j := elen; j > ecur; j -= 1) { ebuf[j] = ebuf[j - 1]; }
+        ebuf[ecur] = ch;
         elen = elen + 1;
         ecur = ecur + 1;
       }
@@ -140,29 +165,38 @@ step :: system eff {
   };
 }
 
-/// Blit the buffer text (single line, top margin) + a cursor bar at `ecur` into the shared framebuffer.
+/// Blit the buffer text (multi-line: `\n` breaks the line) + a cursor bar at `ecur` into the framebuffer.
 render :: system (query { framebuffer })(framebuffer) eff {
   map (query { handle }) eff {
     gfx.dims(handle)(vw:, vh:);
     map (query { ebuf, elen, ecur }) eff {
-      tsz  := 16;       // fixed cell pixel height
-      tcol := 0xE0E0E0; // fixed text colour
-      s    := tsz / 8;  // integer upscale (pixel height → 8×8 cell scale)
-      ty   := 40;       // single line at the top margin (multi-line later)
+      tsz   := 16;       // cell pixel height
+      tcol  := 0xE0E0E0; // text colour
+      s     := tsz / 8;  // integer upscale (pixel height → 8×8 cell scale)
+      adv   := 8 * s;    // per-char x advance
+      pitch := tsz + 6;  // per-line y advance
+      left  := 8;        // left margin
+      top   := 40;       // top margin
+      // A pen walks the buffer: '\n' (10) starts a new line, printable chars blit at the pen + advance it.
+      penx := left;
+      peny := top;
+      curx := left; // cursor pixel position — captured when the pen reaches index ecur
+      cury := top;
       for (i := 0; i < elen; i += 1) {
+        if (i == ecur) { curx = penx; cury = peny; } // cursor sits just before char i
         c := ebuf[i];
-        if (c < 32 || c > 126) { continue; } // printable ASCII only
+        if (c == 10) { penx = left; peny = peny + pitch; continue; } // newline
+        if (c < 32 || c > 126) { penx = penx + adv; continue; }      // non-printable: advance only
         gi := c - 32; // GLYPHS is indexed from space (0x20)
-        ox := 8 + i * 8 * s; // 8px left margin, one 8-px cell per char
         for (row := 0; row < 8; row += 1) {
           b := GLYPHS[gi * 8 + row];
           for (col := 0; col < 8; col += 1) {
             if (b < 128) { b = b * 2; continue; } // pixel off → shift, skip
             b = b - 128; // clear the tested bit
             b = b * 2;   // shift the next bit into the top slot
-            x0 := ox + col * s;
+            x0 := penx + col * s;
             x1 := x0 + s;
-            y0 := ty + row * s;
+            y0 := peny + row * s;
             y1 := y0 + s;
             if (x1 > vw) { x1 = vw; }
             if (y1 > vh) { y1 = vh; }
@@ -173,14 +207,15 @@ render :: system (query { framebuffer })(framebuffer) eff {
             }
           }
         }
+        penx = penx + adv;
       }
-      // Cursor: a 2px vertical bar at column ecur, full cell height.
-      cx := 8 + ecur * 8 * s;
-      for (cy := ty; cy < ty + tsz; cy += 1) {
-        if (cy >= vh) { continue; }
-        for (cxx := cx; cxx < cx + 2; cxx += 1) {
+      if (ecur >= elen) { curx = penx; cury = peny; } // cursor at the very end
+      // Cursor: a 2px vertical bar, full cell height, at the 2D pen position.
+      for (cyy := cury; cyy < cury + tsz; cyy += 1) {
+        if (cyy >= vh) { continue; }
+        for (cxx := curx; cxx < curx + 2; cxx += 1) {
           if (cxx >= vw) { continue; }
-          framebuffer[cy * vw + cxx] = tcol;
+          framebuffer[cyy * vw + cxx] = tcol;
         }
       }
     };
