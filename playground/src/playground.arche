@@ -1,63 +1,41 @@
-// arche-playground — the COMPOSED app: an EDITOR pane (top) + a compiler + a TERMINAL/screen output pane
-// (bottom), in ONE gfx window. Edit Arche code, press Ctrl-R to compile+run it, see the output below.
-// Same program native (gfx=x11) and wasm (gfx=wasm) — only [select] differs. Devices are transforms over the
-// driver's world data; this driver owns the layout + wires the editor's text → the compiler → the screen.
-//   native:  make dev   (ARCHE_BIN=... ARCHE_SELECT=gfx=x11,editor=window,screen=window,compiler=clib arche run)
-#import { gfx editor screen compiler os }
+// arche-playground — the COMPOSED app, BACKEND-AGNOSTIC: an EDITOR + a compiler + a TERMINAL/screen, wired by
+// world data (editor text -> compiler -> screen output). It imports NO gfx and owns NO framebuffer — each device
+// renders itself (dom widgets / tty / a window). The composition is identical for any backend combination; only
+// `[select]` changes:
+//   browser:  editor=dom, screen=dom, compiler=wasm   (a real <textarea> + <pre>, in-browser compiler)
+//   (native gfx-window is the sibling src/window.arche, which adds gfx for the framebuffer backends)
+#import { editor screen compiler }
 
-W     :: 900;
-H     :: 700;
-OUT_Y :: 372; // y where the output pane starts (editor pane is above it)
-ROWS  :: 16;  // output rows
+ROWS :: 24;
 
-handle :: window;
-bg     :: int;
 elen   :: int;
 ecur   :: int;
 submit :: int;
 trow   :: int;
 tlen   :: int;
-oy     :: int;
 
-Window      :: arche { handle, bg }
-Framebuffer :: arche { framebuffer :: [W * H]int }
-EditBuf     :: arche { ebuf :: [256]char, elen, ecur, submit }
-Out         :: arche { obuf :: [4096]char }
-Line        :: arche { trow, tstr :: [64]char, tlen, oy }
-[1]Window ?abort;
-[1]Framebuffer(1);
-[1]EditBuf ?abort;
+EditBuf :: arche { ebuf :: [256]char, elen, ecur, submit }
+Out     :: arche { obuf :: [4096]char }
+Line    :: arche { trow, tstr :: [64]char, tlen }
+[1]EditBuf(1);
 [1]Out(1);
 [ROWS]Line ?abort;
-[1]Closed;
 
-boot :: system eff {
-  gfx.open(W, H, "arche playground")(win:);
-  insert(Window { handle: win, bg: 0x0B0E14 });
-  // A starter program. Edit it, then Ctrl-R to run. elen=0 → `measure` fills it from the NUL terminator.
-  insert(EditBuf { ebuf: "#import { fmt }\ngo :: system eff { fmt.printf(\"result = %d\\n\", 6 * 7); }\n#run seq({ go })", elen: 0, ecur: 0, submit: 0 })(_:, _ok:);
-}
-
-// The seeded ebuf is NUL-terminated; compute its length once so the editor + compiler see the real source.
-measure :: system eff {
-  map (query { ebuf, elen, ecur })(ebuf, elen, ecur) eff {
-    for (; elen < 256 && ebuf[elen] != 0; elen += 1) { }
-    ecur = elen;
-  };
-}
-
-// Pre-allocate the output rows (trow = row index, positioned in the bottom pane).
+// Pre-allocate the output rows (trow = row index); the screen device renders them.
 seed_lines :: system eff {
   for (n := 0; n < ROWS; n += 1) {
-    insert(Line { trow: n, tstr: "", tlen: 0, oy: OUT_Y })(_:, _ok:);
+    insert(Line { trow: n, tstr: "", tlen: 0 })(_:, _ok:);
   }
 }
 
-// On Ctrl-R (the editor raised `submit`), run the editor's source and capture the program output into obuf.
-compile :: system eff {
-  map (query { ebuf, elen, submit })(submit) eff {
+// On submit (raised by editor.poll_run / the window backend's step): measure the source `ebuf` (filled by
+// editor.text), then compile+run it, capturing the program output into `obuf`.
+run_it :: system eff {
+  map (query { ebuf, elen, submit })(ebuf, elen, submit) eff {
     if (submit == 1) {
       submit = 0;
+      elen = 0;
+      for (; elen < 256 && ebuf[elen] != 0; elen += 1) { }
       map (query { obuf })(obuf) eff {
         compiler.run(ebuf, elen, obuf, 4096)(_:, obuf:);
       };
@@ -68,11 +46,13 @@ compile :: system eff {
 // Each output row extracts its own `trow`-th line from the captured output (NUL/newline delimited).
 populate :: system eff {
   map (query { obuf }) eff {
-    map (query { trow, tstr, tlen, oy })(tstr, tlen) eff {
+    map (query { trow, tstr, tlen })(tstr, tlen) eff {
       p := 0;
       r := 0;
       for (; r < trow && obuf[p] != 0; p += 1) {
-        if (obuf[p] == 10) { r = r + 1; }
+        if (obuf[p] == 10) {
+          r = r + 1;
+        }
       }
       tlen = 0;
       if (r == trow) {
@@ -85,25 +65,18 @@ populate :: system eff {
   };
 }
 
-done :: map (Closed) eff {
-  os.exit(0)(_:);
-}
-
 #run {
   seq({
-    boot,
-    measure,
+    editor.open,
     seed_lines,
     forever(seq({
       editor.step,
-      compile,
+      editor.text,
+      editor.poll_run,
+      run_it,
       populate,
-      gfx.clear,
       editor.render,
       screen.render,
-      gfx.present,
-      gfx.poll,
-      done,
     })),
   })
 }

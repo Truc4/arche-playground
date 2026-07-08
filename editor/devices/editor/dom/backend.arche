@@ -1,11 +1,41 @@
-/// DOM backend for the `editor` device — merged under `[select] editor = "dom"`. No C shim: `editor_be_open`
-/// stays undefined and becomes a wasm IMPORT the JS host (dom/host.js, shipped with the device + collected by
-/// `arche build --arch=wasm32`) fulfils by creating a native <textarea>. The browser does all the editing.
+/// DOM backend for the `editor` device — merged under `[select] editor = "dom"`. No C shim: the `editor_be_*`
+/// seams stay undefined and become wasm IMPORTS the JS host (dom/host.js, collected by `arche build
+/// --arch=wasm32`) fulfils with a real <textarea>. Implements the uniform editor interface as SYSTEMS that
+/// operate on the driver's world columns (like `screen.render`) — `open`, `text` (fill `{ebuf}`), `poll_run`
+/// (raise `{submit}`), and no-op `step`/`render` (the textarea self-manages) — so a driver composes this
+/// interchangeably with the window/clib backends.
 #module
 #foreign
 editor_be_open :: proc();
+#foreign
+editor_be_text :: proc(buf: []char, cap: int)(buf: []char); // write the editor content into buf, NUL-terminated
+#foreign
+editor_be_poll_run :: proc()(run: int); // 1 once after Ctrl-Enter, else 0
 
-/// Open the editing surface.
+/// Show + focus the editing surface.
 open :: system eff {
   editor_be_open()();
+}
+
+/// Fill the driver's source buffer `{ebuf}` from the <textarea> (NUL-terminated; the driver scans the length).
+text :: system eff {
+  map (query { ebuf })(ebuf) eff {
+    editor_be_text(ebuf, 256)(ebuf:);
+  };
+}
+
+/// Raise the driver's `{submit}` flag when the user asks to run (Ctrl-Enter).
+poll_run :: system eff {
+  map (query { submit })(submit) eff {
+    editor_be_poll_run()(r:);
+    if (r == 1) {
+      submit = 1;
+    }
+  };
+}
+
+/// The <textarea> manages its own input + rendering — no-ops that satisfy the shared interface.
+step :: system eff {
+}
+render :: system eff {
 }

@@ -1,0 +1,8 @@
+/// WASM backend for the `compiler` device — merged under `[select] compiler = "wasm"`. No C shim: the seam
+/// stays undefined and becomes a wasm IMPORT the JS host (wasm/host.js, shipped with the device + collected by
+/// `arche build --arch=wasm32`) fulfils by running the in-browser Arche compiler (arche-compile.wasm) + the
+/// compiled program, capturing stdout — all in-process (the browser analog of the clib backend's popen).
+/// Same seam as clib, so `compiler.run` (in the namesake compiler.arche) works unchanged.
+#module
+#foreign
+compiler_be_run :: proc(src: []char, n: int, buf: []char, cap: int)(src: []char, buf: []char);

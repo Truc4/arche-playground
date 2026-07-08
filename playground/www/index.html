@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>arche · playground</title>
+<style>
+  :root { color-scheme: dark }
+  body { margin: 0; background: #0b0e14; color: #cdd6f4; font: 14px/1.6 ui-monospace, Menlo, monospace }
+  header { padding: 12px 18px; border-bottom: 1px solid #1c2130 }
+  header b { color: #89b4fa }
+  header .sub { color: #6c7086 }
+  #app { padding: 18px; display: flex; flex-direction: column; gap: 12px }
+  /* the screen device drops a <pre id="arche-screen"> here; the editor device a <textarea id="arche-editor"> */
+  #arche-screen { margin: 0; min-height: 28vh; background: #11151f; border: 1px solid #1c2130; border-radius: 6px;
+    padding: 12px; white-space: pre; overflow: auto; color: #a6e3a1 }
+</style></head>
+<body>
+  <!-- A BACKEND-AGNOSTIC composed app: the SAME playground.arche that runs natively as a gfx window runs here
+       with the DOM backends — a real <textarea> (editor=dom) + <pre> (screen=dom) + the in-browser compiler
+       (compiler=wasm). No canvas, no bitmap glyphs: real widgets, real fonts. -->
+  <header><b>arche · playground</b> — edit Arche, press <b>Ctrl-Enter</b> to compile + run (all in-browser).<br>
+  <span class="sub">Composes editor=dom + screen=dom + compiler=wasm — the same driver runs native as a gfx window.</span></header>
+  <div id="app"></div>
+
+  <!-- The compiler host runs arche-compile.wasm (WasiFS) + the compiled program (WasiShim) in-process.
+       NOTE: arche-web.js also defines a (minimal) global WasiShim, so load wasi.js AFTER it — the compiler
+       host needs wasi.js's full WasiShim (with .start()); arche-web.js uses its own internally (closure). -->
+  <script src="analyzer/wasi-fs.js"></script>
+  <script src="arche-web.js"></script>
+  <script src="wasi.js"></script>
+  <script src="playground.hosts.js"></script>
+  <script>archeRun("playground.wasm", { root: document.getElementById("app") });</script>
+</body></html>

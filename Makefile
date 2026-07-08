@@ -30,9 +30,10 @@ terminal:
 editor:
 	$(MAKE) -C editor serve PORT=$(PORT)
 
-# Build the in-browser toolchain (if missing) then serve the playground GUI statically.
+# Browser: the COMPOSED playground (editor=dom + screen=dom + compiler=wasm) — a real <textarea> + <pre> + the
+# in-browser compiler. Build the toolchain the compiler host runs (if missing), then delegate to playground/.
 serve: $(TOOLCHAIN)
-	python3 dev-server.py $(PORT) www
+	$(MAKE) -C playground serve PORT=$(PORT)
 
 # The compiler/analyzer wasm + core/stdlib bundle are build artifacts (gitignored); rebuild from source.
 toolchain: $(TOOLCHAIN)
