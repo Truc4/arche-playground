@@ -1,12 +1,8 @@
-/// WINDOW backend for the `screen` device — merged under `[select] screen = "window"`. The native/canvas
-/// renderer: it blits a built-in 8×8 bitmap font straight into the DRIVER's `{ framebuffer }` (the same buffer
-/// gfx renders into), so the terminal composites into a gfx window on every target — native X11 window and web
-/// canvas — with NO host seam and no JS. Pure raster, exactly like gfx's `rect`/`circle` + the text device's
-/// framebuffer backend (from which this was adapted). This is the "same look native + wasm" path.
-///
-/// It reads the driver's screen rows `{ trow, tstr, tlen }` (the driver owns/positions them) and lays them out
-/// as fixed-pitch lines: `trow` → y (top margin + trow*pitch), `tstr[0..tlen]` the chars. The dom/clib backends
-/// render the same rows to a <pre>/tty instead.
+/// WINDOW backend for the `editor` device — merged under `[select] editor = "window"`. The framebuffer twin
+/// of the dom `<textarea>`: it does the editing ITSELF (there's no OS text widget in a gfx window). `step`
+/// drains `gfx.key` and mutates the driver's edit buffer `{ ebuf, elen, ecur }`; `render` blits the text +
+/// a cursor block into the shared `{ framebuffer }` via the same 8×8 bitmap font as the screen backend. Native
+/// X11 window and web canvas look the same. The driver owns the buffer archetype (a device owns no storage).
 #import { gfx }
 
 // 8×8 glyphs: full printable ASCII 0x20–0x7E (95 glyphs), indexed `char - 0x20`, one hex byte per row with
@@ -111,40 +107,146 @@ GLYPHS :: {
   0x76, 0xdc, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // '~'
 }
 
-/// Blit every display run into the shared framebuffer as scaled bitmap glyphs, clamped to the window.
+/// No OS widget to create — the gfx window IS the surface. Kept so the device interface matches the dom/clib
+/// backends' `open`. (The driver opens the gfx window itself.)
+open :: system eff {
+}
+
+/// Drain one key per frame from `gfx.key` and edit the driver's buffer `{ ebuf, elen, ecur }` AT THE CURSOR.
+/// One key/frame keeps pace at 60fps. Left/Right (gfx sentinels 1000/1001) move the cursor; a printable char
+/// inserts at the cursor; Backspace deletes the char before it — both shift the tail of the buffer.
+step :: system eff {
+  map (query { handle }) eff {
+    gfx.key(handle)(k:);
+    map (query { ebuf, elen, ecur, submit })(ebuf, elen, ecur, submit) eff {
+      if (k == 18) { submit = 1; }                       // Ctrl-R → raise submit (the driver acts on it)
+      if (k == 1000 && ecur > 0) { ecur = ecur - 1; }    // Left
+      if (k == 1001 && ecur < elen) { ecur = ecur + 1; } // Right
+      if (k == 1002) { // Up → same column on the previous line
+        ls := ecur;
+        for (; ls > 0 && ebuf[ls - 1] != 10; ls -= 1) { } // start of current line
+        col := ecur - ls;
+        if (ls > 0) {
+          ps := ls - 1;                                   // '\n' ending the previous line
+          for (; ps > 0 && ebuf[ps - 1] != 10; ps -= 1) { } // start of previous line
+          plen := ls - 1 - ps;                            // previous line length
+          if (col > plen) { ecur = ls - 1; } else { ecur = ps + col; }
+        }
+      }
+      if (k == 1003) { // Down → same column on the next line
+        ls := ecur;
+        for (; ls > 0 && ebuf[ls - 1] != 10; ls -= 1) { } // start of current line
+        col := ecur - ls;
+        le := ecur;
+        for (; le < elen && ebuf[le] != 10; le += 1) { }  // end of current line
+        if (le < elen) {
+          ns := le + 1;                                   // start of next line
+          ne := ns;
+          for (; ne < elen && ebuf[ne] != 10; ne += 1) { } // end of next line
+          nlen := ne - ns;
+          if (col > nlen) { ecur = ne; } else { ecur = ns + col; }
+        }
+      }
+      if (k == 8 && ecur > 0) { // Backspace → delete char before cursor, shift tail left
+        for (j := ecur - 1; j < elen - 1; j += 1) { ebuf[j] = ebuf[j + 1]; }
+        elen = elen - 1;
+        ecur = ecur - 1;
+      }
+      // Insert a printable char, or Enter (13) → a newline (10). Shift the tail right.
+      ch := 0;
+      if (k >= 32 && k < 127) { ch = k; }
+      if (k == 13) { ch = 10; }
+      if (ch > 0 && elen < 255) {
+        for (j := elen; j > ecur; j -= 1) { ebuf[j] = ebuf[j - 1]; }
+        ebuf[ecur] = ch;
+        elen = elen + 1;
+        ecur = ecur + 1;
+      }
+    };
+  };
+}
+
+/// Blit the buffer text (multi-line: `\n` breaks the line) + a cursor bar at `ecur` into the framebuffer.
 render :: system (query { framebuffer })(framebuffer) eff {
   map (query { handle }) eff {
     gfx.dims(handle)(vw:, vh:);
-    map (query { trow, tstr, tlen, oy }) eff {
-      tsz  := 16;             // fixed cell pixel height
-      tcol := 0xE0E0E0;       // fixed text colour
-      s    := tsz / 8;        // integer upscale (pixel height → 8×8 cell scale)
-      ty   := oy + trow * 22; // row index → y (driver-supplied top origin `oy`, 22px line pitch)
-      for (i := 0; i < tlen; i += 1) {
-        c := tstr[i];
-        if (c < 32 || c > 126) { continue; } // printable ASCII only
+    map (query { ebuf, elen, ecur, ex, ey }) eff {
+      tsz   := 16;       // cell pixel height
+      tcol  := 0xE0E0E0; // text colour
+      s     := tsz / 8;  // integer upscale (pixel height → 8×8 cell scale)
+      adv   := 8 * s;    // per-char x advance
+      pitch := tsz + 6;  // per-line y advance
+      left  := ex + 12;  // panel-relative origin — the driver projects {ex,ey} (world→screen); +pad inside the rect
+      top   := ey + 10;
+      // This backend OWNS its panel surface: fill a dark background rect (like the dom <textarea>'s CSS bg), then
+      // blit the text on top. Rendered after the world text (editor.render runs after text.render), so the panel
+      // layers OVER the scene — the same result the dom z-index gives in the browser. Clamped to the window.
+      pbg := 0x0B0E14; // panel background
+      pw  := 640;      // panel size (render px)
+      ph  := 480;
+      bx0 := ex;      by0 := ey;      bx1 := ex + pw; by1 := ey + ph;
+      if (bx0 < 0)  { bx0 = 0; }
+      if (by0 < 0)  { by0 = 0; }
+      if (bx1 > vw) { bx1 = vw; }
+      if (by1 > vh) { by1 = vh; }
+      for (by := by0; by < by1; by += 1) {
+        for (bx := bx0; bx < bx1; bx += 1) {
+          framebuffer[by * vw + bx] = pbg;
+        }
+      }
+      // A pen walks the buffer: '\n' (10) starts a new line, printable chars blit at the pen + advance it.
+      penx := left;
+      peny := top;
+      curx := left; // cursor pixel position — captured when the pen reaches index ecur
+      cury := top;
+      for (i := 0; i < elen; i += 1) {
+        if (i == ecur) { curx = penx; cury = peny; } // cursor sits just before char i
+        c := ebuf[i];
+        if (c == 10) { penx = left; peny = peny + pitch; continue; } // newline
+        if (c < 32 || c > 126) { penx = penx + adv; continue; }      // non-printable: advance only
         gi := c - 32; // GLYPHS is indexed from space (0x20)
-        ox := 8 + i * 8 * s; // 8px left margin, one 8-px cell per char
         for (row := 0; row < 8; row += 1) {
           b := GLYPHS[gi * 8 + row];
           for (col := 0; col < 8; col += 1) {
             if (b < 128) { b = b * 2; continue; } // pixel off → shift, skip
             b = b - 128; // clear the tested bit
             b = b * 2;   // shift the next bit into the top slot
-            x0 := ox + col * s;
+            x0 := penx + col * s;
             x1 := x0 + s;
-            y0 := ty + row * s;
+            y0 := peny + row * s;
             y1 := y0 + s;
-            if (x1 > vw) { x1 = vw; }
-            if (y1 > vh) { y1 = vh; }
             for (yy := y0; yy < y1; yy += 1) {
+              if (yy < 0 || yy >= vh || yy >= ey + ph) { continue; }             // clip to panel ∩ window
               for (xx := x0; xx < x1; xx += 1) {
+                if (xx < 0 || xx >= vw || xx >= ex + pw) { continue; }            // (xx < 0 → no off-screen wrap)
                 framebuffer[yy * vw + xx] = tcol;
               }
             }
           }
         }
+        penx = penx + adv;
+      }
+      if (ecur >= elen) { curx = penx; cury = peny; } // cursor at the very end
+      // Cursor: a 2px vertical bar, full cell height, at the 2D pen position — clipped to the panel ∩ window.
+      for (cyy := cury; cyy < cury + tsz; cyy += 1) {
+        if (cyy < 0 || cyy >= vh || cyy >= ey + ph) { continue; }
+        for (cxx := curx; cxx < curx + 2; cxx += 1) {
+          if (cxx < 0 || cxx >= vw || cxx >= ex + pw) { continue; }
+          framebuffer[cyy * vw + cxx] = tcol;
+        }
       }
     };
   };
+}
+
+/// No-op place — the framebuffer editor renders at its own position; only the DOM backend positions itself in a
+/// scene. Kept so a driver that schedules `editor.place` composes with this backend too.
+place :: system eff {
+}
+
+/// The source already lives in the world (edited by `step`) and `step` raises `submit` on Ctrl-R — so `text`
+/// and `poll_run` are no-ops here; only the dom backend pulls text from a widget + reads a JS run-flag.
+text :: system eff {
+}
+poll_run :: system eff {
 }

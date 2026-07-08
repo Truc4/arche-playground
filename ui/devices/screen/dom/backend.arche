@@ -7,6 +7,8 @@
 screen_be_clear   :: proc();
 screen_be_line    :: proc(row: int, s: []char, n: int)(s: []char);
 screen_be_present :: proc();
+#foreign
+screen_be_place   :: proc(x: int, y: int); // position the <pre> at a projected screen coord (opt-in)
 
 /// Clear last frame's lines, then emit every world line at its row, then pace the frame (host no-ops; rAF paces).
 render :: system eff {
@@ -15,5 +17,14 @@ render :: system eff {
     screen_be_line(trow, tstr, tlen)(_:);
   };
   screen_be_present()();
+}
+
+/// Position the output panel at the driver's projected screen coords `{sx, sy}` (embeds it in a scene; on first
+/// call the host switches the <pre> to a fixed-size absolutely-positioned panel). Opt-in — only a driver that
+/// provides `{sx, sy}` + schedules `screen.place` uses it.
+place :: system eff {
+  map (query { sx, sy }) eff {
+    screen_be_place(sx, sy)();
+  };
 }
 

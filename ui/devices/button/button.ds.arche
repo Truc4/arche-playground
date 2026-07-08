@@ -1,0 +1,16 @@
+/// Datasheet for the `button` device — a clickable UI control. The device owns no storage; the DRIVER owns the
+/// button's columns and the selected backend renders + hit-tests them:
+///   {bx,by,bw,bh}  the button's screen rect (the driver projects/places it)
+///   {blabel,blen}  its label text
+///   {bclicked}     set to 1 for the one frame a click lands, else 0 — the driver reads it and reacts
+///   {bwasdown}     backend-private edge-detection state (window backend only)
+///
+/// Backends:
+///   dom    — a real browser <button> the host positions + labels; its click raises the flag (dom/host.js).
+///   window — a filled rect + a centred 8×8 bitmap label blitted into the shared framebuffer, hit-testing gfx's
+///            pointer (gfx.mouse_*) for clicks.
+///
+/// Uniform interface (systems, like editor/screen): `place` (position at the screen rect), `render` (draw / set
+/// the label), `poll` (click → `{bclicked}`). Pick a backend with `[select] button = "dom" | "window"`. The two
+/// are interchangeable: a driver schedules button.place / button.render / button.poll regardless of backend.
+// RUN: true

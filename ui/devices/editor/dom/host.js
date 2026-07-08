@@ -47,6 +47,18 @@
 
         // editor_be_poll_run(): 1 once after Ctrl-Enter, then clears (drain-and-clear like gfx_be_key).
         editor_be_poll_run() { const f = self.runPending; self.runPending = false; return f ? 1 : 0; },
+
+        // editor_be_place(x,y): position the textarea at a projected screen coord (render-px), scaled to CSS-px
+        // by innerHeight/renderH (exactly the text-layer scale). First call switches it to a fixed-size panel.
+        editor_be_place(x, y) {
+          const ta = self.ta, s = window.innerHeight / (rt.renderH || 1080);
+          if (ta.style.position !== "absolute") {
+            ta.style.position = "absolute";
+            ta.style.width = "580px"; ta.style.height = "320px"; ta.style.zIndex = "5";
+          }
+          ta.style.left = (x * s) + "px";
+          ta.style.top = (y * s) + "px";
+        },
       };
     },
   });

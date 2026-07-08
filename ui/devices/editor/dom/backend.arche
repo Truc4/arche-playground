@@ -11,6 +11,8 @@ editor_be_open :: proc();
 editor_be_text :: proc(buf: []char, cap: int)(buf: []char); // write the editor content into buf, NUL-terminated
 #foreign
 editor_be_poll_run :: proc()(run: int); // 1 once after Ctrl-Enter, else 0
+#foreign
+editor_be_place :: proc(x: int, y: int); // position the <textarea> at a projected screen coord (opt-in)
 
 /// Show + focus the editing surface.
 open :: system eff {
@@ -38,4 +40,13 @@ poll_run :: system eff {
 step :: system eff {
 }
 render :: system eff {
+}
+
+/// Position the editor panel at the driver's projected screen coords `{ex, ey}` (used to embed it in a scene;
+/// on first call the host switches the textarea to a fixed-size absolutely-positioned panel). Opt-in — only a
+/// driver that provides `{ex, ey}` + schedules `editor.place` uses it; the standalone playground never does.
+place :: system eff {
+  map (query { ex, ey }) eff {
+    editor_be_place(ex, ey)();
+  };
 }

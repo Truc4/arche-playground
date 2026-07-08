@@ -2,7 +2,7 @@
 # `[lib] paths` are module-search roots: our own devices/ + the arche stdlib. `[select]` picks the browser
 # backend by default; `make dev` overrides to the native one via ARCHE_SELECT.
 [lib]
-paths = ["devices", "../../arche/extras", "../../arche/stdlib"]
+paths = ["../ui/devices", "../../arche/extras", "../../arche/stdlib"]
 
 [select]
 screen = "dom"

@@ -4,8 +4,7 @@
 [lib]
 paths = [
   "devices",
-  "../editor/devices",
-  "../terminal/devices",
+  "../ui/devices",
   "../../arche/extras",
   "../../arche/stdlib",
 ]
