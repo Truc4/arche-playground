@@ -1,0 +1,8 @@
+# arche-terminal — the `screen` text-display device (clib + dom backends) + a demo.
+# `[lib] paths` are module-search roots: our own devices/ + the arche stdlib. `[select]` picks the browser
+# backend by default; `make dev` overrides to the native one via ARCHE_SELECT.
+[lib]
+paths = ["devices", "../../arche/stdlib"]
+
+[select]
+screen = "dom"

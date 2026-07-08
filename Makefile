@@ -1,49 +1,38 @@
-# arche-playground — Arche UI components (a `screen` device to start), each a DUMB device whose content lives
-# in the WORLD, with interchangeable backends. `make dev` and `make serve` run the SAME program
-# (src/$(APP).arche) — only the backend differs:
-#   make dev    → NATIVELY in your terminal   (the screen clib backend) — no browser
-#   make serve  → in the browser              (the screen dom backend, compiled to wasm)
-# "The playground isn't just for wasm": dom/wasm is one backend; clib/native is the other.
+# arche-playground — the GUI that COMPOSES the components: write Arche in an editor, compile it in the browser
+# (the Arche compiler + analyzer are themselves WebAssembly), and run it. No server.
 #
-# Quick start:
-#   make dev            # run src/$(APP).arche natively via the clib backend → your terminal
-#   make serve          # build src/$(APP).arche to wasm (dom) + serve → http://localhost:8000
-#   make toolchain      # (re)build the in-browser compiler/analyzer wasm used by editor.html
+#   make serve      # build the in-browser toolchain (if needed) + serve → http://localhost:8000
+#   make toolchain  # (re)build the compiler + analyzer wasm + core/stdlib bundle from ../arche
+#
+# The reusable UI components live in decoupled subdirs — each with its OWN Makefile + demo:
+#   terminal/  — the `screen` display device (clib + dom)            → make -C terminal dev|serve
+#   editor/    — the `editor` device (<textarea> / vendored kilo)    → make -C editor  dev|serve
+# (or use the delegating targets below). Everything depends only on ../arche.
 
-# ARCHE: the native arche compiler. ARCHE_SRC: compiler source (for the browser toolchain).
-# APP: src/$(APP).arche is the program both `make dev` and `make serve` run.
-ARCHE        ?= ../arche/build/arche
 ARCHE_SRC    ?= ../arche
 WASI_SYSROOT ?= /usr/share/wasi-sysroot
 PORT         ?= 8000
-APP          ?= editor
 
 TOOLCHAIN := www/analyzer/arche-compile.wasm www/analyzer/arche-analyzer.wasm www/analyzer/arche-fs.json
 
-.PHONY: all serve dev toolchain clean
+.PHONY: all serve toolchain clean terminal editor
 
 all: serve
 
-# Run the program NATIVELY in the terminal — the screen device's clib backend renders straight to your tty
-# (no browser, no wasm). `arche run` hot-reloads: edit src/$(APP).arche and it recompiles + reruns.
-dev:
-	ARCHE_SELECT=screen=clib $(ARCHE) run src/$(APP).arche
+# Delegate to the components (run their demos). Override the port to run several at once, e.g. PORT=8001.
+terminal:
+	$(MAKE) -C terminal serve PORT=$(PORT)
+editor:
+	$(MAKE) -C editor serve PORT=$(PORT)
 
-# The SAME program, compiled to wasm with the screen DOM backend. screen_be_* become wasm imports the JS host
-# (devices/screen/dom/host.js, collected + emitted as demo.hosts.js) fulfils. Rebuilt whenever the program or
-# the dom backend changes.
-www/demo.wasm: src/$(APP).arche devices/screen/dom/backend.arche devices/screen/dom/host.js devices/screen/screen.ds.arche
-	$(ARCHE) build --arch=wasm32 --select screen=dom -o $@ src/$(APP).arche
-
-# Build the browser twin of `make dev`, then serve it — open http://localhost:$(PORT).
-serve: www/demo.wasm
+# Build the in-browser toolchain (if missing) then serve the playground GUI statically.
+serve: $(TOOLCHAIN)
 	python3 -m http.server $(PORT) -d www
 
-# The in-browser compiler/analyzer toolchain used by editor.html (a separate, heavier app). Gitignored
-# artifacts, so this rebuilds them from $(ARCHE_SRC) on demand.
+# The compiler/analyzer wasm + core/stdlib bundle are build artifacts (gitignored); rebuild from source.
 toolchain: $(TOOLCHAIN)
 $(TOOLCHAIN):
 	ARCHE_SRC="$(ARCHE_SRC)" WASI_SYSROOT="$(WASI_SYSROOT)" sh scripts/build-toolchain.sh
 
 clean:
-	rm -f www/demo.wasm $(TOOLCHAIN)
+	rm -f $(TOOLCHAIN)

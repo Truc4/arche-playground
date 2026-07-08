@@ -1,0 +1,13 @@
+/// Datasheet for the `editor` device — a text-editing SURFACE. Unlike a dumb display, the editor's BACKENDS
+/// are real editor implementations; the device just opens one and (later) hands its text back. It owns no
+/// storage and no edit logic — the backend does the editing:
+///   dom  — a native browser <textarea> (multi-line, cursor, selection, undo, IME — all free from the DOM).
+///   clib — a vendored single-file terminal text editor (kilo) driving the real tty.
+///
+/// Seam(s) a backend fulfils:
+///   editor_be_open() — open the editing surface (dom: create a focused <textarea>; clib: run the editor).
+///
+/// Pick a backend with `[select] editor = "dom" | "clib"`. This is a COMMAND-model device: `open` shows the
+/// surface and returns; the browser <textarea> persists in the page, and the terminal editor blocks until you
+/// quit. (Reading the edited text back into the world is a follow-up seam.)
+// RUN: true

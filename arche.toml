@@ -1,9 +1,4 @@
-# Project manifest for the arche-playground components. `[lib] paths` are the module-search roots: `devices`
-# holds our own devices (screen/), and the arche stdlib/extras provide the rest. `[select]` pins each device to
-# one backend; the web default is the dom/wasm backend, and `make dev` overrides to the native one via
-# ARCHE_SELECT (e.g. `ARCHE_SELECT=screen=clib`).
+# arche-playground composes the components (../arche-editor, ../arche-terminal) into an in-browser GUI:
+# write Arche, compile it client-side (the compiler is wasm), run it. It ships no devices of its own.
 [lib]
-paths = ["devices", "../arche/stdlib", "../arche/extras"]
-
-[select]
-screen = "dom"
+paths = ["../arche/stdlib"]

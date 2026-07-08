@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>arche · terminal (screen device)</title>
+  <style>
+    :root { color-scheme: dark; }
+    body { margin: 0; background: #0b0e14; color: #cdd6f4; font: 14px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; }
+    header { padding: 14px 18px; border-bottom: 1px solid #1c2130; }
+    header b { color: #89b4fa; } header .sub { color: #6c7086; }
+    #app { padding: 18px; }
+    #arche-screen { margin: 0; white-space: pre; min-height: 6em; }
+    code { color: #a6e3a1; }
+  </style>
+</head>
+<body>
+  <header>
+    <b>arche · terminal</b> — the <code>screen</code> device, dom backend.<br />
+    <span class="sub">The same <code>src/demo.arche</code> runs in your terminal via <code>make dev</code> (clib backend).</span>
+  </header>
+  <div id="app"></div>
+  <!-- Emitted by `arche build --arch=wasm32` next to demo.wasm — the screen device ships its own host. -->
+  <script src="arche-web.js"></script>
+  <script src="demo.hosts.js"></script>
+  <script>archeRun("demo.wasm", { root: document.getElementById("app") });</script>
+</body>
+</html>

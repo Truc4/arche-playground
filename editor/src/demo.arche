@@ -1,0 +1,11 @@
+// editor demo — open the editing surface. The backend IS the editor: a <textarea> in the browser (dom), a
+// vendored terminal editor in the tty (clib). Same program, chosen by `[select] editor = ...`.
+//   native:   make dev     → ARCHE_SELECT=editor=clib arche run src/demo.arche
+//   browser:  make serve   → editor=dom, compiled to wasm
+#import { editor }
+
+#run {
+  seq({
+    editor.open,
+  })
+}

@@ -1,32 +1,67 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>arche · screen device</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>arche playground</title>
   <style>
-    :root { color-scheme: dark; }
-    body { margin: 0; background: #0b0e14; color: #cdd6f4; font: 14px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; }
-    header { padding: 14px 18px; border-bottom: 1px solid #1c2130; }
-    header b { color: #89b4fa; }
-    header .sub { color: #6c7086; }
-    #app { padding: 18px; }
-    #arche-screen { margin: 0; white-space: pre; min-height: 6em; }
-    .foot { color: #6c7086; padding: 0 18px 18px; }
-    a { color: #89b4fa; } code { color: #a6e3a1; }
+    :root { color-scheme: light dark; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; font: 14px/1.5 system-ui, sans-serif; }
+    body { display: grid; grid-template-rows: auto 1fr; }
+    header { display: flex; gap: .75rem; align-items: center; padding: .5rem .75rem;
+             border-bottom: 1px solid #8884; }
+    header h1 { font-size: 1rem; margin: 0; font-weight: 600; }
+    header .spacer { flex: 1; }
+    button { font: inherit; padding: .35rem .9rem; cursor: pointer; border-radius: 6px;
+             border: 1px solid #8886; background: #2563eb; color: #fff; }
+    button:disabled { opacity: .5; cursor: default; }
+    #status { color: #888; font-size: .85rem; }
+    main { display: grid; grid-template-columns: 1fr 1fr; min-height: 0; }
+    .pane { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+    .pane + .pane { border-left: 1px solid #8884; }
+    /* Editor: a plain textarea for now (CodeMirror is the next step). */
+    #editor { flex: 1; width: 100%; border: 0; resize: none; padding: .75rem;
+              font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; tab-size: 2; outline: none; }
+    #out { flex: 1; margin: 0; overflow: auto; padding: .75rem; white-space: pre-wrap;
+           font: 13px/1.5 ui-monospace, monospace; }
+    #screen { flex: 1; min-height: 0; width: 100%; background: #0b0f1a; display: none;
+              object-fit: contain; image-rendering: pixelated; }
+    #diagnostics { border-top: 1px solid #8884; max-height: 9rem; overflow: auto; font-size: .82rem; }
+    #diagnostics:empty { display: none; }
+    .diag { padding: .2rem .75rem; border-left: 3px solid transparent; }
+    .diag.error { border-color: #ef4444; background: #ef44441a; }
+    .diag.warning { border-color: #f59e0b; background: #f59e0b1a; }
+    .diag.note { color: #888; }
+    .diag .loc { color: #888; margin-right: .5rem; }
   </style>
 </head>
 <body>
   <header>
-    <b>arche · screen device</b> — the <b>dom</b> backend.<br />
-    <span class="sub">The same <code>src/demo.arche</code> runs in your terminal via <code>make dev</code> (clib backend).</span>
+    <h1>arche playground</h1>
+    <button id="run">▶ Run</button>
+    <span id="status"></span>
+    <span class="spacer"></span>
+    <span id="hint" style="color:#888;font-size:.8rem">compute → text · gfx → canvas</span>
   </header>
-  <div id="app"></div>
-  <div class="foot">Turnkey: only the compiler-emitted <code>arche-web.js</code> + <code>demo.hosts.js</code> are loaded — no hand-written host. The in-browser editor is at <a href="editor.html">editor.html</a>.</div>
+  <main>
+    <section class="pane">
+      <textarea id="editor" spellcheck="false"></textarea>
+      <div id="diagnostics"></div>
+    </section>
+    <section class="pane">
+      <pre id="out"></pre>
+      <canvas id="screen" tabindex="0"></canvas>
+    </section>
+  </main>
 
-  <!-- Both files are emitted by `arche build --arch=wasm32` next to demo.wasm; the device ships its own host. -->
-  <script src="arche-web.js"></script>
-  <script src="demo.hosts.js"></script>
-  <script>archeRun("demo.wasm", { root: document.getElementById("app") });</script>
+  <script src="runtime/wasi.js"></script>
+  <script src="runtime/text.js"></script>
+  <script src="runtime/gfx.js"></script>
+  <script src="runtime/run.js"></script>
+  <script src="analyzer/wasi-fs.js"></script>
+  <script src="analyzer/analyzer.js"></script>
+  <script src="analyzer/arche-compiler.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>

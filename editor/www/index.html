@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>arche · editor (dom)</title>
+<style>:root{color-scheme:dark}body{margin:0;background:#0b0e14;color:#cdd6f4;font:14px/1.6 ui-monospace,Menlo,monospace}
+header{padding:14px 18px;border-bottom:1px solid #1c2130}header b{color:#89b4fa}header .sub{color:#6c7086}#app{padding:18px}code{color:#a6e3a1}</style></head>
+<body>
+  <header><b>arche · editor</b> — the <code>editor</code> device, dom backend (a real &lt;textarea&gt;).<br>
+  <span class="sub">The same <code>src/demo.arche</code> runs a vendored terminal editor via <code>make dev</code> (clib).</span></header>
+  <div id="app"></div>
+  <script src="arche-web.js"></script>
+  <script src="demo.hosts.js"></script>
+  <script>archeRun("demo.wasm", { root: document.getElementById("app") });</script>
+</body></html>

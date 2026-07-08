@@ -1,0 +1,3 @@
+/www/*.wasm
+/www/*.hosts.js
+/www/arche-web.js

@@ -1,0 +1,12 @@
+/// C-LIB backend for the `editor` device — merged under `[select] editor = "clib"`. Vendors a self-contained
+/// single-file terminal text editor (editor_clib.c, auto-compiled because it sits in this variant folder;
+/// pure libc + termios, no #link). `editor_be_open` puts the tty in raw mode and runs the editor until you
+/// quit with Ctrl-Q. This is the kilo-style "vendored C editor" backend — the native twin of the dom
+/// backend's <textarea>.
+#module
+#foreign
+editor_be_open :: proc();
+
+open :: system eff {
+  editor_be_open()();
+}
