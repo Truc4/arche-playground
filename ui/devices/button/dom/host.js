@@ -22,14 +22,16 @@
     seams(rt) {
       const self = this, dec = new TextDecoder();
       return {
-        // Position + size at a projected screen rect (render-px), scaled to CSS-px like the other DOM panels.
+        // button_be_place: the composed playground positions the shared frame (via the editor); this just moves
+        // the <button> into that frame as an em-sized flex child (once). x/y/w/h are ignored — the frame lays it out.
         button_be_place(x, y, w, h) {
-          const s = window.innerHeight / (rt.renderH || 1080), b = self.b;
-          b.style.left = (x * s) + "px";
-          b.style.top = (y * s) + "px";
-          b.style.width = (w * s) + "px";
-          b.style.height = (h * s) + "px";
-          b.style.fontSize = (Math.max(10, h * s * 0.42)) + "px";
+          const f = document.getElementById("arche-playground"), b = self.b;
+          if (f && b.parentNode !== f) {
+            b.style.cssText = "order:3;flex:0 0 auto;align-self:flex-start;box-sizing:border-box;cursor:pointer;" +
+              "border:none;border-radius:0.4em;padding:0.55em 1.5em;background:#e4694e;color:#160d0a;" +
+              "font:600 1em ui-sans-serif,system-ui,sans-serif;";
+            f.appendChild(b);
+          }
         },
         // Set the label (rewrite only on change so a focus ring / press state isn't disturbed each frame).
         button_be_label(ptr, n) {

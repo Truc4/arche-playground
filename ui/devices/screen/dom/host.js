@@ -26,17 +26,16 @@
       },
       screen_be_present() {}, // native paces; the browser paces via rAF
 
-      // screen_be_place(x,y): position the <pre> at a projected screen coord (render-px), scaled by
-      // innerHeight/renderH. First call switches it to a fixed-size panel with its own styling.
+      // screen_be_place(x,y): the composed playground positions the shared frame (via the editor); this just
+      // moves the <pre> into that frame as an em-sized flex child (once). x/y are ignored — the frame lays it out.
       screen_be_place(x, y) {
-        const el = self.el, s = window.innerHeight / (rt.renderH || 1080);
-        if (el.style.position !== "absolute") {
-          el.style.cssText = "position:absolute;width:580px;min-height:130px;margin:0;z-index:5;background:#11151f;" +
-            "border:1px solid #1c2130;border-radius:6px;padding:12px;color:#a6e3a1;" +
-            "font:13px/1.5 ui-monospace,Menlo,monospace;white-space:pre;overflow:auto;";
+        const f = document.getElementById("arche-playground"), el = self.el;
+        if (f && el.parentNode !== f) {
+          el.style.cssText = "order:2;flex:0 0 auto;min-height:5em;max-height:12em;width:100%;box-sizing:border-box;" +
+            "margin:0;overflow:auto;background:#11151f;color:#a6e3a1;border:1px solid #232838;border-radius:0.4em;" +
+            "padding:0.7em;white-space:pre;font:0.92em/1.5 ui-monospace,Menlo,monospace;";
+          f.appendChild(el);
         }
-        el.style.left = (x * s) + "px";
-        el.style.top = (y * s) + "px";
       },
     };
   },
